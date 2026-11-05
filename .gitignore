@@ -1,0 +1,18 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+
+# Sesi login (berisi cookie/token)
+.auth/*
+!.auth/.gitkeep
+auth*.json
+
+# Kredensial dan override environment
+.env
+.env.*
+!.env.example
+
+# Hasil rekaman/laporan lokal
+excel-report/
+evidence/
