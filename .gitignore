@@ -16,3 +16,6 @@ auth*.json
 # Hasil rekaman/laporan lokal
 excel-report/
 evidence/
+
+load-test/
+aduan-polri-load-test/
