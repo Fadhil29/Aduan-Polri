@@ -1,8 +1,0 @@
-[
-  {
-    "id": "TEST-001",
-    "email": "test-user@example.invalid",
-    "password": "REPLACE_LOCALLY",
-    "role": "polres"
-  }
-]
