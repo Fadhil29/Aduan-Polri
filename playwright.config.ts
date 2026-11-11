@@ -44,6 +44,10 @@ export default defineConfig({
   testDir: './tests',
   globalSetup: './config/globalSetup.ts',
   timeout: 60_000,
+  expect: { timeout: 10_000 },
+
+  // batas total run supaya CI tidak menggantung; reporter tetap menulis laporan saat kena batas
+  globalTimeout: 60 * 60 * 1000,
 
   // berurutan, karena spec bernomor (01-, 02-) dan data staging dipakai bersama
   fullyParallel: false,
@@ -51,7 +55,11 @@ export default defineConfig({
 
   forbidOnly: !!process.env.CI,
   retries: 0,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ['junit', { outputFile: 'test-results/junit.xml' }],
+  ],
 
   use: {
     baseURL: process.env.BASE_URL,

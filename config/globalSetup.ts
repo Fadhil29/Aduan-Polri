@@ -27,6 +27,12 @@ export default async function globalSetup(): Promise<void> {
       if (!username || !password) {
         if (fs.existsSync(authFile(role))) {
           console.log(`[${role}] kredensial kosong, pakai sesi yang sudah ada di .auth/${role}.json`);
+          // sesi manual (captcha/OTP) tidak diperbarui otomatis: ingatkan kalau sudah lama
+          const maxAgeHours = Number(process.env.AUTH_MAX_AGE_HOURS ?? 8);
+          const ageHours = (Date.now() - fs.statSync(authFile(role)).mtimeMs) / 36e5;
+          if (ageHours > maxAgeHours) {
+            console.warn(`[${role}] sesi berumur ${ageHours.toFixed(1)} jam (batas ${maxAgeHours}). Kalau test redirect ke /login, jalankan: npm run codegen:auth -- ${role}`);
+          }
           continue;
         }
         throw new Error(`Isi ${role.toUpperCase()}_USERNAME dan ${role.toUpperCase()}_PASSWORD di .env, atau jalankan: npm run codegen:auth -- ${role}`);

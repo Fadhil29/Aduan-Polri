@@ -1,0 +1,82 @@
+name: Playwright Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Filter tag, contoh: @smoke (kosong = semua)'
+        required: false
+        default: '@smoke'
+  # Sengaja tidak jalan otomatis di push/PR: sesi login manual (captcha/OTP) cepat kedaluwarsa.
+  # Aktifkan trigger push/PR kalau staging bisa dijangkau runner DAN sesi diperbarui rutin.
+
+jobs:
+  test:
+    # Kalau staging hanya bisa diakses dari jaringan internal/VPN, ganti ke self-hosted runner
+    runs-on: ubuntu-latest
+    env:
+      ENV: staging
+      BASE_URL: ${{ secrets.BASE_URL }}
+      ROLES: polres,polda,bareskrim
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Sesi dibuat lokal: npm run codegen:auth -- <role>  (menghasilkan .auth/<role>.json dan, lewat npm run auth,
+      # .auth/<role>.session.json). Tiap file di-encode base64 dan disimpan sebagai GitHub Secret:
+      #   AUTH_POLRES_B64, AUTH_POLRES_SESSION_B64, AUTH_POLDA_B64, ... (sesuai ROLES)
+      #   Linux/Mac: base64 -w0 .auth/polres.json
+      #   PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes(".auth/polres.json"))
+      # Kredensial *_USERNAME/_PASSWORD sengaja tidak diisi, jadi globalSetup memakai sesi ini.
+      - name: Restore auth sessions
+        env:
+          AUTH_POLRES_B64: ${{ secrets.AUTH_POLRES_B64 }}
+          AUTH_POLRES_SESSION_B64: ${{ secrets.AUTH_POLRES_SESSION_B64 }}
+          AUTH_POLDA_B64: ${{ secrets.AUTH_POLDA_B64 }}
+          AUTH_POLDA_SESSION_B64: ${{ secrets.AUTH_POLDA_SESSION_B64 }}
+          AUTH_BARESKRIM_B64: ${{ secrets.AUTH_BARESKRIM_B64 }}
+          AUTH_BARESKRIM_SESSION_B64: ${{ secrets.AUTH_BARESKRIM_SESSION_B64 }}
+        run: |
+          mkdir -p .auth
+          for role in polres polda bareskrim; do
+            up=$(echo "$role" | tr '[:lower:]' '[:upper:]')
+            main="AUTH_${up}_B64"; sess="AUTH_${up}_SESSION_B64"
+            [ -n "${!main}" ] && echo "${!main}" | base64 -d > ".auth/${role}.json"
+            [ -n "${!sess}" ] && echo "${!sess}" | base64 -d > ".auth/${role}.session.json"
+          done
+          ls .auth | sed 's/^/restored: /'
+
+      # Hanya login-check.spec.ts. File lain di folder itu (rekaman mentah) sengaja tidak ikut jalan di CI.
+      - name: Cek sesi login (gate)
+        run: npx playwright test --project=login-check login-check.spec
+
+      - name: Run Playwright tests
+        env:
+          GREP: ${{ github.event.inputs.grep }}
+        run: |
+          args=""
+          for role in ${ROLES//,/ }; do args="$args --project=${role}-chromium"; done
+          args="$args --project=public-chromium --pass-with-no-tests"
+          if [ -n "$GREP" ]; then args="$args --grep $GREP"; fi
+          npx playwright test $args
+
+      # Laporan, trace, dan screenshot bisa memuat data aplikasi. Repo harus private, retensi dipendekkan.
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

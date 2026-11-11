@@ -8,6 +8,8 @@
     "auth": "tsx scripts/auth.ts",
     "setup": "playwright test --project=login-check",
     "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",

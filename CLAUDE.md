@@ -49,6 +49,19 @@ tutor/                    panduan langkah demi langkah untuk tim
 - Komentar `Test Step :` bernomor di awal body test, lalu kode tiap langkah di bawahnya.
 - Test yang mengetes halaman login harus mematikan sesi: `test.use({ storageState: { cookies: [], origins: [] } })`.
 - Hasil rekaman codegen adalah DRAFT: rapikan locator, tambah assertion, hapus langkah yang tidak perlu sebelum dianggap test.
+- Tag di judul test/describe: `@smoke` (alur kritis, cepat) atau `@regression`. Jalankan: `npm run test:smoke` / `npm run test:regression`. Tag tambahan per modul boleh (contoh `@aduan`).
+- Prioritaskan test berdasarkan risiko (area yang berubah atau berdampak tinggi), bukan merata ke semua fitur.
+- Sebelum commit: `npm run typecheck` harus bersih. (Lint ESLint belum dipasang: `typescript-eslint` belum mendukung TypeScript 7.)
+
+## CI (GitHub Actions)
+- Workflow: `.github/workflows/playwright.yml`, dijalankan manual (`workflow_dispatch`) dengan input tag.
+- Login manual (captcha/OTP) tidak bisa otomatis di CI. Sesi `.auth/<role>.json` (+ `.session.json`) di-encode base64 dan disimpan sebagai GitHub Secret (`AUTH_<ROLE>_B64`, `AUTH_<ROLE>_SESSION_B64`), plus `BASE_URL`. Sesi kedaluwarsa, jadi secret perlu diperbarui berkala.
+- Staging yang hanya bisa diakses dari jaringan internal/VPN tidak terjangkau `ubuntu-latest`: pakai self-hosted runner.
+- Laporan/trace/screenshot bisa memuat data aplikasi: repo harus private, retensi artifact pendek.
+
+## Skills di folder ini
+- `aduan-polri-qa`: alur menulis test, checklist review, debug. Buatan sendiri, mengikuti file ini.
+- `playwright-core`, `-ci`, `-pom`, `-cli`, `-migration`, `-frontend`, `-qa`: skill pihak ketiga (TestDino), dipasang lewat `npx skills add testdino-hq/playwright-skill`. Referensi saja: kalau bentrok dengan file ini, file ini menang.
 
 ## Alur kerja
 1. Isi `ROLES` + kredensial akun uji di `.env`, sesuaikan selector di `pages/LoginPage.ts`, lalu `npm run setup` (login semua role, cek `.auth/`).
