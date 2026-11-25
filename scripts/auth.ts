@@ -2,10 +2,10 @@
 // lalu cookie + localStorage + sessionStorage disimpan ke .auth/<role>.json dan .auth/<role>.session.json
 // pemakaian: npm run auth -- polres
 import fs from 'node:fs';
-import { chromium, expect } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import { assertStaging } from '../config/env';
 import { ROLES, authFile, sessionFile } from '../config/roles';
-import { LoginPage } from '../pages/LoginPage';
+import { LoginPage, HALAMAN_DALAM } from '../pages/LoginPage';
 
 async function main(): Promise<void> {
   assertStaging('auth');
@@ -22,29 +22,43 @@ async function main(): Promise<void> {
     const loginPage = new LoginPage(page);
     await loginPage.bukaLogin();
 
-    console.log(`[auth] Login sebagai "${role}" di browser yang terbuka (selesaikan captcha). Maksimal 5 menit, jangan tutup browsernya.`);
-    // tunggu form muncul dulu, kalau tidak "hilang" langsung lolos sebelum halaman selesai dimuat
-    await expect(loginPage.tombolLogin()).toBeVisible({ timeout: 30_000 });
-    await expect(loginPage.tombolLogin()).toBeHidden({ timeout: 300_000 });
-    await page.waitForLoadState('networkidle');
-
-    const state = await context.storageState({ indexedDB: true });
-    const session = await page.evaluate(() => ({
-      host: location.hostname,
-      items: Object.fromEntries(Object.entries(sessionStorage)),
-    }));
+    console.log(`[auth] Login sebagai "${role}" di browser yang terbuka (selesaikan captcha, ulangi kalau gagal). Maksimal 5 menit, jangan tutup browsernya.`);
+    // sesi baru disimpan setelah benar-benar masuk ke halaman /i/ (contoh /i/daftar-aduan/terkirim),
+    // bukan sekadar tombol Login hilang (bisa hilang sebentar saat loading / popup captcha)
+    await page.waitForURL(HALAMAN_DALAM, { timeout: 300_000 });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {}); // bisa tidak pernah idle
+    console.log(`[auth] sudah masuk: ${new URL(page.url()).pathname}`);
 
     // reCAPTCHA dan device id bukan tanda login
     const noise = /grecaptcha|^rc::|^device_/i;
     const appHost = new URL(process.env.BASE_URL!).hostname;
-    const appOrigin = state.origins.find((o) => new URL(o.origin).hostname === appHost);
-    const loginKeys = [
-      ...state.cookies.filter((c) => !noise.test(c.name) && !/google\.com$/.test(c.domain)).map((c) => `cookie:${c.name}`),
-      ...(appOrigin?.localStorage ?? []).filter((i) => !noise.test(i.name)).map((i) => `localStorage:${i.name}`),
-      ...Object.keys(session.items).filter((k) => !noise.test(k)).map((k) => `sessionStorage:${k}`),
-      ...((appOrigin as { indexedDB?: { name: string }[] } | undefined)?.indexedDB ?? []).map((d) => `indexedDB:${d.name}`),
-    ];
-    console.log(`[auth] URL akhir: ${new URL(page.url()).pathname}`);
+    type Idb = { name: string; stores: { name: string; records: unknown[] }[] };
+
+    const ambilSesi = async () => {
+      const state = await context.storageState({ indexedDB: true });
+      const session = await page.evaluate(() => ({
+        host: location.hostname,
+        items: Object.fromEntries(Object.entries(sessionStorage)),
+      }));
+      const appOrigin = state.origins.find((o) => new URL(o.origin).hostname === appHost);
+      const idb = ((appOrigin as { indexedDB?: Idb[] } | undefined)?.indexedDB ?? []);
+      const loginKeys = [
+        ...state.cookies.filter((c) => !noise.test(c.name) && !/google\.com$/.test(c.domain)).map((c) => `cookie:${c.name}`),
+        ...(appOrigin?.localStorage ?? []).filter((i) => !noise.test(i.name)).map((i) => `localStorage:${i.name}`),
+        ...Object.keys(session.items).filter((k) => !noise.test(k)).map((k) => `sessionStorage:${k}`),
+        // database IndexedDB baru dihitung kalau ada isinya (ngStorage kosong bukan tanda login)
+        ...idb.flatMap((d) => d.stores.filter((s) => s.records.length > 0).map((s) => `indexedDB:${d.name}/${s.name}(${s.records.length})`)),
+      ];
+      return { state, session, loginKeys };
+    };
+
+    // token kadang baru ditulis sesaat setelah halaman tampil: cek ulang sampai 15 detik
+    let hasil = await ambilSesi();
+    for (let i = 0; i < 15 && hasil.loginKeys.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 1_000));
+      hasil = await ambilSesi();
+    }
+    const { state, session, loginKeys } = hasil;
     if (loginKeys.length === 0) {
       throw new Error('Tidak ada data login (selain reCAPTCHA/device id) di cookie, localStorage, sessionStorage, atau IndexedDB. Sesi TIDAK disimpan. Pastikan sudah benar-benar masuk ke dashboard; kalau sudah, token login disimpan di tempat lain dan perlu dicek dengan developer.');
     }

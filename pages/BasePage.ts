@@ -6,8 +6,10 @@ import { expect, type Locator, type Page } from '@playwright/test';
 export class BasePage {
   constructor(protected readonly page: Page) {}
 
+  // tidak menunggu event "load": aset pihak ketiga (reCAPTCHA, font) bisa bikin load lama/menggantung.
+  // kesiapan halaman dicek lewat elemen yang ditunggu sesudahnya.
   async buka(alamat: string): Promise<void> {
-    await this.page.goto(alamat);
+    await this.page.goto(alamat, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   }
 
   judul(teks: string, { exact = true } = {}): Locator {
@@ -38,8 +40,10 @@ export class BasePage {
       .filter({ hasNotText: /tidak ada data/i });
   }
 
+  // tunggu request awal reda, maksimal 5 detik. halaman di /i/ (polres/polda) terus mengirim request
+  // di latar, jadi "networkidle" bisa tidak pernah tercapai. kesiapan data tetap dicek lewat expect di spec.
   async tungguData(): Promise<void> {
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
   }
 
   // isi kolom teks dan pastikan nilainya tidak terhapus render ulang (umum di Angular)

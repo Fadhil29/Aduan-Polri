@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import { ROLES, authFile } from '../../config/roles';
-import { restoreSession } from '../../config/fixtures';
+import { restoreSession } from '../../config/session';
 import { LoginPage } from '../../pages/LoginPage';
 
 const picked = (process.env.ROLE ?? '').split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
@@ -17,17 +17,15 @@ for (const role of roles) {
     // Test Step :
     // 1. pastikan file sesi .auth/<role>.json ada
     // 2. buka aplikasi memakai sesi tersebut
-    // 3. pastikan tidak dilempar balik ke halaman login
+    // 3. pastikan form login tidak muncul
     expect(fs.existsSync(authFile(role)), `.auth/${role}.json belum ada`).toBeTruthy();
 
     const context = await browser.newContext({ baseURL: process.env.BASE_URL, storageState: authFile(role) });
     await restoreSession(context, role);
     const page = await context.newPage();
     try {
-      await page.goto('/');
-      await page.waitForLoadState('networkidle');
-      await expect(page, `sesi ${role} kedaluwarsa, jalankan ulang npm run setup`).not.toHaveURL(/\/login/);
-      await expect(new LoginPage(page).tombolLogin()).toBeHidden();
+      const masuk = await new LoginPage(page).sudahMasuk();
+      expect(masuk, `tidak masuk ke /i/ (URL: ${page.url()}): sesi ${role} tidak berlaku. jalankan: npm run auth -- ${role}`).toBeTruthy();
     } finally {
       await context.close();
     }

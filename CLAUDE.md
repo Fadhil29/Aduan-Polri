@@ -34,7 +34,7 @@ tutor/                    panduan langkah demi langkah untuk tim
 ## Aturan keras
 1. **Hanya environment staging/uji yang kamu punya izin.** `ENV` harus `staging`. Jangan menjalankan atau merekam di production.
 2. **Data fiktif saja.** Aplikasi pengaduan menyimpan data pribadi (pelapor, terlapor, kronologi). Jangan merekam atau menyimpan data asli di spec, screenshot, trace, atau laporan.
-3. **Kredensial** hanya di `.env` atau lewat sesi `playwright/.auth/` (keduanya di-ignore git). Jangan tulis username/password/token di kode, log, atau output.
+3. **Kredensial** hanya di `.env` atau lewat sesi `.auth/` (keduanya di-ignore git). Jangan tulis username/password/token di kode, log, atau output.
 4. Data uji yang dibuat test diberi awalan `AUTO-` supaya mudah dikenali dan dibersihkan (konvensi default; ubah di sini kalau tim punya aturan lain).
 5. Jangan mengarang angka (coverage, jumlah defect, persen otomasi). Data tidak ada = "belum terukur".
 6. Terus terang soal keterbatasan: kalau sesuatu belum dijalankan atau tidak bisa diverifikasi, bilang.
@@ -42,6 +42,7 @@ tutor/                    panduan langkah demi langkah untuk tim
 ## Konvensi kode
 - Locator prioritas: `getByRole` > `getByLabel` > `getByText` > `getByTestId`. Hindari CSS/XPath panjang dan `nth()`.
 - Tanpa `waitForTimeout`. Tunggu kondisi (`expect(...).toBeVisible()`, `waitForResponse`, dll).
+- Jangan `waitForLoadState('networkidle')` tanpa batas: halaman di `/i/` (polres/polda) terus mengirim request di latar sehingga tidak pernah idle dan test menggantung sampai timeout. Pakai `BasePage.tungguData()` (maks 5 detik) atau tunggu elemen tertentu.
 - Satu test = satu tujuan jelas; nama test menjelaskan perilaku yang dicek.
 - Assertion harus mengecek hasil (isi, status, pesan), bukan cuma elemen tampil.
 - Spec memanggil page object, bukan `page.locator(...)`/`getByRole` langsung. Assertion hasil hanya di spec; `expect` di page object cuma untuk menunggu (`toPass`/`poll`).
@@ -69,7 +70,9 @@ tutor/                    panduan langkah demi langkah untuk tim
 
 ## Alur kerja
 1. Isi `ROLES` + kredensial akun uji di `.env`, lalu `npm run setup` (login semua role, cek `.auth/`).
-   Login tidak bisa diotomasi (SSO/OTP)? `npm run codegen:auth -- <role>` -> login manual, tutup browser. globalSetup memakai sesi itu kalau kredensial role kosong.
+   Login kena reCAPTCHA: globalSetup (`LoginPage.loginDenganUlang`) klik OK lalu mengulang login sampai `LOGIN_MAX_ATTEMPTS` (default 5) dengan jeda bertahap. Ditolak karena alasan lain (mis. password salah) langsung berhenti.
+   Sesi `.auth/<role>.json` yang lebih muda dari `AUTH_MAX_AGE_HOURS` (default 8) dipakai ulang tanpa login; paksa login ulang dengan `FORCE_LOGIN=true`.
+   Tetap gagal 5x? Login manual: `npm run auth -- <role>`.
 2. `npm run codegen -- nama-fitur --role <role>` -> rekam skenario ke `tests/recorded/`.
 3. Rapikan jadi `pages/<Modul>/XxxPage.ts` + `data/staging/<Nama-Flow>.json` + `tests/<role>/<Modul>/NN-<Nama-Flow>.spec.ts`, lalu review dengan agent `qa-reviewer`.
 4. `npm test` (atau `npx playwright test --project=<role>-chromium`), `npm run report` untuk melihat laporan.
@@ -80,7 +83,7 @@ tutor/                    panduan langkah demi langkah untuk tim
 - Custom: `test-designer` (desain test case), `qa-reviewer` (review read-only), `bug-triager` (analisis test gagal).
 
 ## Konteks yang belum terisi (tanya pemilik project, jangan diasumsikan)
-- URL staging dan metode login (SSO / form biasa / tanpa login).
+- Login: form email + password dengan reCAPTCHA (staging `https://stag-polri.cd9dev.org`). Opsi paling stabil untuk otomasi: minta dev mematikan reCAPTCHA di staging atau memakai test key Google; belum dikonfirmasi.
 - Hak akses tiap role (menu/aksi/data yang boleh dilihat masing-masing).
 - Fitur dan alur utama yang menjadi prioritas, serta area yang baru berubah.
 - Riwayat defect dan tenggat waktu.
