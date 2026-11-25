@@ -17,3 +17,11 @@ export function autoId(prefix = 'AUTO'): string {
   const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   return `${prefix}-${stamp}-${Math.random().toString(36).slice(2, 6)}`;
 }
+
+// path file upload dari .env (path lokal tiap mesin, tidak di-commit), contoh UPLOAD_SURAT_PDF
+export function fileUpload(envKey: string): string {
+  const file = process.env[envKey]?.trim().replace(/^"(.*)"$/, '$1');
+  if (!file) throw new Error(`Isi ${envKey} di .env dengan path file lokal`);
+  if (!fs.existsSync(file)) throw new Error(`File ${envKey} tidak ditemukan: ${file}`);
+  return file;
+}

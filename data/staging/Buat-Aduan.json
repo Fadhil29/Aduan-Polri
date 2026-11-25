@@ -1,0 +1,14 @@
+{
+  "kategori": "Fitnah",
+  "statusSetelahKirim": {
+    "polres": "Approval Polda",
+    "polda": "Approval Bareskrim",
+    "bareskrim": "Diproses"
+  },
+  "url": {
+    "platform": "Domain",
+    "link": "https://example.com/auto-test-aduan",
+    "keterangan": "AUTO keterangan fiktif untuk pengujian otomatis",
+    "dasarHukum": "KUHP Baru UU No. 1 Tahun 2023 Pasal 433"
+  }
+}

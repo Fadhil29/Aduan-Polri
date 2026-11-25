@@ -17,7 +17,8 @@ config/testdata.ts        getData('Nama') -> data/<ENV>/Nama.json, autoId() untu
 data/staging/             data uji JSON per flow (fiktif)
 pages/BasePage.ts         locator & aksi umum (judul, tombol, tabel, isiTeks, ...), semua page extends ini
 pages/LoginPage.ts        login: isiEmail, isiPassword, klikLogin, login, pastikanMasuk(role)
-pages/<Modul>/XxxPage.ts  satu halaman = satu class, contoh pages/Dashboard/DashboardPage.ts
+pages/<Modul>/XxxPage.ts  satu halaman = satu class, contoh pages/DaftarAduan/DaftarAduanPage.ts
+pages/HalamanAwal/        acuan halaman setelah login (tidak ada dashboard; polres -> /i/daftar-aduan/terkirim)
 tests/login-check/        cek sesi login tiap role tersimpan (npm run setup)
 tests/<role>/<Modul>/     spec final per role, nama file NN-Nama-Flow.spec.ts
 tests/public/             spec tanpa login
