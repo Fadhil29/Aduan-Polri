@@ -1,32 +1,26 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator } from '@playwright/test';
+import { BasePage } from '../BasePage';
 
-export class DaftarAduanPage {
-  constructor(private readonly page: Page) {}
-
-  async gotoTerkirim(): Promise<void> {
-    await this.page.goto('/i/daftar-aduan/terkirim');
-    await this.page.waitForLoadState('networkidle');
+export class DaftarAduanPage extends BasePage {
+  async bukaTerkirim(): Promise<void> {
+    await this.buka('/i/daftar-aduan/terkirim');
+    await this.tungguData();
   }
 
-  terkirimLink(): Locator {
-    return this.page.getByRole('link', { name: 'Terkirim', exact: true });
+  menuTerkirim(): Locator {
+    return this.menu('Terkirim');
   }
 
   // nama aksesibel diawali karakter ikon, jadi tidak pakai exact
-  createButton(): Locator {
-    return this.page.getByRole('button', { name: 'Create' });
+  tombolCreate(): Locator {
+    return this.tombol('Create', { exact: false });
   }
 
-  downloadButton(): Locator {
-    return this.page.getByRole('button', { name: 'Download' });
+  tombolDownload(): Locator {
+    return this.tombol('Download', { exact: false });
   }
 
-  nextPageButton(): Locator {
-    return this.page.getByRole('button', { name: 'Next Page', exact: true });
-  }
-
-  // form login hanya muncul kalau sesi tidak valid
-  loginButton(): Locator {
-    return this.page.getByRole('button', { name: 'Login', exact: true });
+  tombolHalamanBerikutnya(): Locator {
+    return this.tombol('Next Page');
   }
 }
