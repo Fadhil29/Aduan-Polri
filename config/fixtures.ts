@@ -2,9 +2,9 @@
 // memulihkan sessionStorage hasil globalSetup ke setiap halaman.
 // role diambil dari metadata.role project, atau dari nama project: "polres-chromium" -> "polres".
 import { test as base, expect } from '@playwright/test';
-import { restoreSession } from './session';
+import { restoreSession, contextRole } from './session';
 
-export { expect, restoreSession };
+export { expect, restoreSession, contextRole };
 
 export const test = base.extend({
   context: async ({ context }, use, testInfo) => {

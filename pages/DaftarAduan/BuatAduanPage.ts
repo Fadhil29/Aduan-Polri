@@ -86,6 +86,18 @@ export class BuatAduanPage extends BasePage {
 
   // tunggu sampai aplikasi meninggalkan form (aduan tersimpan). tanpa ini, navigasi berikutnya
   // bisa membatalkan request simpan yang masih berjalan.
+  // isi lengkap + kirim, dipakai sebagai prasyarat test lain (contoh approval)
+  async buatDanKirim(isian: { judul: string; nomorSurat: string; fileSurat: string; kategori: string; url: DataUrlAduan }): Promise<void> {
+    await this.bukaForm();
+    await this.isiJudul(isian.judul);
+    await this.isiNomorSurat(isian.nomorSurat);
+    await this.uploadSurat(isian.fileSurat);
+    await this.pilihKategori(isian.kategori);
+    await this.tambahUrl(isian.url);
+    await this.klikSubmit();
+    await this.konfirmasiKirim();
+  }
+
   async konfirmasiKirim(): Promise<void> {
     await this.tombol('Ya, Kirim').click();
     await this.page.waitForURL((url) => !url.pathname.endsWith('/draft/add'), { timeout: 30_000 });
