@@ -15,8 +15,9 @@ config/globalSetup.ts     login sekali per role sebelum test, simpan sesi ke .au
 config/fixtures.ts        `test` yang memulihkan sessionStorage per role
 config/testdata.ts        getData('Nama') -> data/<ENV>/Nama.json, autoId() untuk data AUTO-
 data/staging/             data uji JSON per flow (fiktif)
-pages/LoginPage.ts        page object login (selector masih placeholder, sesuaikan)
-pages/<Modul>/XxxPage.ts  satu halaman = satu class
+pages/BasePage.ts         locator & aksi umum (judul, tombol, tabel, isiTeks, ...), semua page extends ini
+pages/LoginPage.ts        login: isiEmail, isiPassword, klikLogin, login, pastikanMasuk(role)
+pages/<Modul>/XxxPage.ts  satu halaman = satu class, contoh pages/Dashboard/DashboardPage.ts
 tests/login-check/        cek sesi login tiap role tersimpan (npm run setup)
 tests/<role>/<Modul>/     spec final per role, nama file NN-Nama-Flow.spec.ts
 tests/public/             spec tanpa login
@@ -43,7 +44,10 @@ tutor/                    panduan langkah demi langkah untuk tim
 - Tanpa `waitForTimeout`. Tunggu kondisi (`expect(...).toBeVisible()`, `waitForResponse`, dll).
 - Satu test = satu tujuan jelas; nama test menjelaskan perilaku yang dicek.
 - Assertion harus mengecek hasil (isi, status, pesan), bukan cuma elemen tampil.
-- Spec memanggil page object, bukan `page.locator(...)`/`getByRole` langsung. `expect` hanya di spec, tidak di page object.
+- Spec memanggil page object, bukan `page.locator(...)`/`getByRole` langsung. Assertion hasil hanya di spec; `expect` di page object cuma untuk menunggu (`toPass`/`poll`).
+- Page object `extends BasePage` (atau base per modul, contoh `pages/Aduan/AduanBasePage.ts`, kalau beberapa halaman satu modul berbagi filter/tabel yang sama). Jangan duplikasi helper yang sudah ada di BasePage.
+- Nama method pakai Bahasa Indonesia dan aksi bisnis, pola Komdigi: aksi `bukaXxx()`, `isiXxx()`, `klikXxx()`, `pilihXxx()`; locator `tombolXxx()`, `kolomXxx()`, `judul()`. Bukan `clickButton3()`.
+- Spec yang butuh login memanggil `new LoginPage(page).pastikanMasuk('<role>')` di `beforeEach`.
 - Data uji lewat `getData()` dari `data/staging/`, tidak di-hardcode di spec. Kredensial hanya dari `process.env`.
 - Spec yang butuh login mengimpor `test`/`expect` dari `config/fixtures` dan ditaruh di folder role yang benar; tidak ada langkah login di dalamnya (sudah ditangani globalSetup).
 - Komentar `Test Step :` bernomor di awal body test, lalu kode tiap langkah di bawahnya.
@@ -64,7 +68,7 @@ tutor/                    panduan langkah demi langkah untuk tim
 - `playwright-core`, `-ci`, `-pom`, `-cli`, `-migration`, `-frontend`, `-qa`: skill pihak ketiga (TestDino), dipasang lewat `npx skills add testdino-hq/playwright-skill`. Referensi saja: kalau bentrok dengan file ini, file ini menang.
 
 ## Alur kerja
-1. Isi `ROLES` + kredensial akun uji di `.env`, sesuaikan selector di `pages/LoginPage.ts`, lalu `npm run setup` (login semua role, cek `.auth/`).
+1. Isi `ROLES` + kredensial akun uji di `.env`, lalu `npm run setup` (login semua role, cek `.auth/`).
    Login tidak bisa diotomasi (SSO/OTP)? `npm run codegen:auth -- <role>` -> login manual, tutup browser. globalSetup memakai sesi itu kalau kredensial role kosong.
 2. `npm run codegen -- nama-fitur --role <role>` -> rekam skenario ke `tests/recorded/`.
 3. Rapikan jadi `pages/<Modul>/XxxPage.ts` + `data/staging/<Nama-Flow>.json` + `tests/<role>/<Modul>/NN-<Nama-Flow>.spec.ts`, lalu review dengan agent `qa-reviewer`.

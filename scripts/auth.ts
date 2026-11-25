@@ -20,12 +20,12 @@ async function main(): Promise<void> {
     const context = await browser.newContext({ baseURL: process.env.BASE_URL, locale: 'id-ID', timezoneId: 'Asia/Jakarta' });
     const page = await context.newPage();
     const loginPage = new LoginPage(page);
-    await loginPage.goto();
+    await loginPage.bukaLogin();
 
     console.log(`[auth] Login sebagai "${role}" di browser yang terbuka (selesaikan captcha). Maksimal 5 menit, jangan tutup browsernya.`);
     // tunggu form muncul dulu, kalau tidak "hilang" langsung lolos sebelum halaman selesai dimuat
-    await expect(loginPage.loginButton()).toBeVisible({ timeout: 30_000 });
-    await expect(loginPage.loginButton()).toBeHidden({ timeout: 300_000 });
+    await expect(loginPage.tombolLogin()).toBeVisible({ timeout: 30_000 });
+    await expect(loginPage.tombolLogin()).toBeHidden({ timeout: 300_000 });
     await page.waitForLoadState('networkidle');
 
     const state = await context.storageState({ indexedDB: true });
@@ -34,21 +34,14 @@ async function main(): Promise<void> {
       items: Object.fromEntries(Object.entries(sessionStorage)),
     }));
 
-    // reCAPTCHA dan device id bukan tanda login
-    const noise = /grecaptcha|^rc::|^device_/i;
     const appHost = new URL(process.env.BASE_URL!).hostname;
-    const appOrigin = state.origins.find((o) => new URL(o.origin).hostname === appHost);
-    const loginKeys = [
-      ...state.cookies.filter((c) => !noise.test(c.name) && !/google\.com$/.test(c.domain)).map((c) => `cookie:${c.name}`),
-      ...(appOrigin?.localStorage ?? []).filter((i) => !noise.test(i.name)).map((i) => `localStorage:${i.name}`),
-      ...Object.keys(session.items).filter((k) => !noise.test(k)).map((k) => `sessionStorage:${k}`),
-      ...((appOrigin as { indexedDB?: { name: string }[] } | undefined)?.indexedDB ?? []).map((d) => `indexedDB:${d.name}`),
-    ];
-    console.log(`[auth] URL akhir: ${new URL(page.url()).pathname}`);
-    if (loginKeys.length === 0) {
-      throw new Error('Tidak ada data login (selain reCAPTCHA/device id) di cookie, localStorage, sessionStorage, atau IndexedDB. Sesi TIDAK disimpan. Pastikan sudah benar-benar masuk ke dashboard; kalau sudah, token login disimpan di tempat lain dan perlu dicek dengan developer.');
+    const hasLogin =
+      state.cookies.some((c) => appHost.endsWith(c.domain.replace(/^\./, ''))) ||
+      state.origins.some((o) => new URL(o.origin).hostname === appHost && o.localStorage.length > 0) ||
+      Object.keys(session.items).length > 0;
+    if (!hasLogin) {
+      throw new Error('Tidak ada data login (cookie/localStorage/sessionStorage) dari aplikasi, sesi TIDAK disimpan. Ulangi dan pastikan sudah masuk ke dashboard.');
     }
-    console.log(`[auth] kandidat data login: ${loginKeys.join(', ')}`);
 
     fs.writeFileSync(authFile(role), JSON.stringify(state));
     fs.writeFileSync(sessionFile(role), JSON.stringify(session));

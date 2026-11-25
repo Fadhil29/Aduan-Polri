@@ -19,7 +19,7 @@ Ikuti dari atas ke bawah. Bagian A sekali di awal, bagian B diulang tiap flow.
    ```
    Nama role huruf kecil tanpa `-`. Folder `tests/polres/`, `tests/polda/`, `tests/bareskrim/` sudah ada.
    Aplikasi tanpa login: biarkan `ROLES=` kosong, taruh test langsung di `tests/`.
-3. Sesuaikan selector di `pages/LoginPage.ts` (kolom username, password, tombol masuk, dan `waitForLoggedIn()` yang menandai login berhasil). Ambil lewat **Pick locator** di panel Playwright atau `npm run codegen -- login --no-auth`.
+3. Cek selector di `pages/LoginPage.ts` masih cocok dengan halaman login (`kolomEmail()`, `kolomPassword()`, `tombolLogin()`). Ambil lewat **Pick locator** di panel Playwright atau `npm run codegen -- login --no-auth`.
 4. `npm run setup`. Berhasil kalau `.auth/<role>.json` terbentuk dan `login-check` lolos.
    Gagal? Lihat `test-results/login-gagal-<role>.png`.
    Login pakai SSO/OTP: kosongkan kredensial role itu, jalankan `npm run codegen:auth -- <role>`, login manual, tutup browser.
@@ -32,7 +32,7 @@ Ikuti dari atas ke bawah. Bagian A sekali di awal, bagian B diulang tiap flow.
 
    | File | Isi |
    |---|---|
-   | `pages/<Modul>/BuatAduanPage.ts` | locator + aksi bisnis, tanpa `expect` |
+   | `pages/<Modul>/BuatAduanPage.ts` | `extends BasePage`, locator + aksi bisnis (`isiJudul()`, `klikKirim()`), tanpa assertion |
    | `data/staging/Buat-Aduan.json` | data uji fiktif |
    | `tests/polres/<Modul>/01-Buat-Aduan.spec.ts` | urutan langkah + assertion |
 
@@ -44,28 +44,34 @@ Ikuti dari atas ke bawah. Bagian A sekali di awal, bagian B diulang tiap flow.
 - [ ] Spec memanggil page object, bukan locator langsung
 - [ ] Tidak ada kredensial/data hardcoded (data lewat `getData()`, data baru berawalan `AUTO-`)
 - [ ] Minimal satu `expect` yang mengecek hasil (isi, status, pesan)
-- [ ] Spec di folder role yang benar, tanpa langkah login
+- [ ] Spec di folder role yang benar, login cukup `pastikanMasuk('<role>')` di beforeEach
 - [ ] Test login mematikan sesi: `test.use({ storageState: { cookies: [], origins: [] } })`
 
 Contoh spec:
 ```ts
 import { test, expect } from '../../../config/fixtures';
+import { LoginPage } from '../../../pages/LoginPage';
 import { BuatAduanPage } from '../../../pages/Aduan/BuatAduanPage';
 import { getData, autoId } from '../../../config/testdata';
 
 const data = getData<{ kategori: string; pesanSukses: string }>('Buat-Aduan');
 
+test.beforeEach(async ({ page }) => {
+  await new LoginPage(page).pastikanMasuk('polres');
+});
+
 test('polres bisa membuat aduan baru', async ({ page }) => {
   /*
     Test Step :
-    1. Buka halaman buat aduan
-    2. Isi judul unik dan kategori, kirim
-    3. Validasi pesan sukses dan aduan muncul di daftar
+    1. Masuk sebagai polres (beforeEach)
+    2. Buka halaman buat aduan
+    3. Isi judul unik dan kategori, kirim
+    4. Validasi pesan sukses dan aduan muncul di daftar
   */
   const aduanPage = new BuatAduanPage(page);
   const judul = autoId();
 
-  await aduanPage.goto();
+  await aduanPage.bukaBuatAduan();
   await aduanPage.buatAduan(judul, data.kategori);
   await expect(aduanPage.pesanNotifikasi()).toHaveText(data.pesanSukses);
   await expect(aduanPage.barisAduan(judul)).toBeVisible();

@@ -43,11 +43,24 @@ export default async function globalSetup(): Promise<void> {
       const page = await context.newPage();
       try {
         const loginPage = new LoginPage(page);
-        await loginPage.goto();
-        await loginPage.login(username, password);
-        await loginPage.waitForLoggedIn();
+        // staging kadang lambat / halaman login kosong: coba sampai 3x dengan jeda bertahap
+        let galat: unknown;
+        let berhasil = false;
+        for (let percobaan = 1; percobaan <= 3 && !berhasil; percobaan++) {
+          try {
+            await loginPage.bukaLogin();
+            await loginPage.login(username, password);
+            await loginPage.tungguMasuk();
+            berhasil = true;
+          } catch (error) {
+            galat = error;
+            if (percobaan < 3) await new Promise((r) => setTimeout(r, 5_000 * percobaan)); // jeda anti rate limit
+          }
+        }
+        if (!berhasil) throw galat;
 
-        const state = await context.storageState({ path: authFile(role) });
+        // cookie + localStorage + IndexedDB
+        const state = await context.storageState({ path: authFile(role), indexedDB: true });
         const session = await page.evaluate(() => ({
           host: location.hostname,
           items: Object.fromEntries(Object.entries(sessionStorage)),

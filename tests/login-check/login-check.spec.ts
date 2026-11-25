@@ -27,7 +27,7 @@ for (const role of roles) {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
       await expect(page, `sesi ${role} kedaluwarsa, jalankan ulang npm run setup`).not.toHaveURL(/\/login/);
-      await expect(new LoginPage(page).loginButton()).toBeHidden();
+      await expect(new LoginPage(page).tombolLogin()).toBeHidden();
     } finally {
       await context.close();
     }

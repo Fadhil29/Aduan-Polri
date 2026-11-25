@@ -13,7 +13,8 @@ Aturan utama ada di `CLAUDE.md` (aturan keras + konvensi kode). Skill ini cuma a
 
 ## Alur test baru
 1. Rancang skenario: equivalence partitioning, boundary value, decision table, state transition. Sertakan negative case, edge case, dan pengecekan hak akses antar role.
-2. Page object di `pages/<Modul>/XxxPage.ts` (tanpa `expect`), data di `data/staging/<Nama-Flow>.json`.
+2. Page object di `pages/<Modul>/XxxPage.ts`, `extends BasePage`, method Bahasa Indonesia (`bukaXxx`/`isiXxx`/`klikXxx`), tanpa assertion hasil. Data di `data/staging/<Nama-Flow>.json`.
+   Spec login lewat `new LoginPage(page).pastikanMasuk('<role>')` di `beforeEach`. Contoh lengkap: `tests/polres/Dashboard/01-Dashboard-Polres.spec.ts`.
 3. Spec di `tests/<role>/<Modul>/NN-<Nama-Flow>.spec.ts`, import `test`/`expect` dari `config/fixtures`, komentar `Test Step :` bernomor di awal body.
 4. Tag di judul describe/test: `@smoke` (alur kritis, cepat) atau `@regression`. Boleh tambah tag modul.
 5. `npm run typecheck`, lalu jalankan project role terkait saja: `npx playwright test --project=polres-chromium`.
