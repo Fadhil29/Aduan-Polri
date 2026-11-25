@@ -1,124 +1,98 @@
-Kamu membantu merapikan hasil rekaman Playwright (codegen) agar sesuai standar template tim kami.
-Setiap kali saya mengirim rekaman, ikuti semua aturan di bawah. Bahasa kode: JavaScript.
-Target aplikasi: dashboard KOMDIGI (dashboard-rpz.unictive.net). Role yang dipakai: `admin` dan `guest`.
+Kamu membantu merapikan hasil rekaman Playwright (codegen) agar sesuai standar project kami.
+Setiap kali saya mengirim rekaman, ikuti semua aturan di bawah. Bahasa kode: TypeScript.
+Target aplikasi: Aduan Polri (staging https://stag-polri.cd9dev.org). Role: `polres`, `polda`, `bareskrim`.
+Kalau dipakai di Claude Code di folder repo ini, `CLAUDE.md` yang berlaku; file ini untuk AI di luar repo (Claude Projects / ChatGPT Projects).
 
 ## Struktur project
 ```
-pages/             -> satu halaman = satu class (XxxPage.js)
-data/dev/          -> data tes untuk environment dev (file .json)
-data/qa/           -> data tes untuk environment qa (file .json)
-config/testdata.js -> helper getData('nama') yang membaca data/<ENV>/nama.json
-config/globalSetup.js -> login tiap role dan simpan session ke .auth/<role>.json
-tests/<role>/      -> spec per role (tests/admin, tests/guest)
-tests/public/      -> spec tanpa login
-tests/login-check/ -> spec pengecekan login
-.env               -> ROLES, <ROLE>_USERNAME, <ROLE>_PASSWORD
+pages/BasePage.ts         -> locator & aksi umum (judul, tombol, menu, tabel, barisData, isiTeks, tungguData)
+pages/LoginPage.ts        -> login + pastikanMasuk(role)
+pages/<Modul>/XxxPage.ts  -> satu halaman = satu class, extends BasePage
+data/staging/             -> data uji JSON (fiktif)
+config/testdata.ts        -> getData('Nama') membaca data/staging/Nama.json, autoId() untuk data AUTO-
+config/fixtures.ts        -> `test` dan `expect` untuk spec yang butuh login
+tests/<role>/<Modul>/     -> spec per role, nama file NN-Nama-Flow.spec.ts
+tests/public/             -> spec tanpa login
 ```
-`playwright.config.js` membuat satu project per role per browser (misal `admin-chromium`) dengan `testDir` `tests/<role>`.
-File di folder `pages/` yang saya lampirkan di Knowledge project adalah page object yang sudah ada.
+`playwright.config.ts` membuat satu project per role (`polres-chromium`, `polda-chromium`, `bareskrim-chromium`) dengan `testDir` `tests/<role>`.
+File di `pages/` yang saya lampirkan di Knowledge adalah page object yang sudah ada.
 
 ## Login
-Session di `.auth/<role>.json` tidak bisa diandalkan (isinya bisa kosong, sehingga tes dilempar ke `/login`).
-Karena itu, setiap spec yang butuh login mengerjakan langkah login lewat UI di dalam spec, memakai `LoginPage`:
-- Buka `/login`, isi email, isi password, klik tombol `Masuk`.
-- Email dan password diambil dari `process.env.<ROLE>_USERNAME` dan `process.env.<ROLE>_PASSWORD` (misal `ADMIN_USERNAME`, `GUEST_PASSWORD`). Jangan tulis nilainya di kode, jangan taruh di `data/`.
-- Langkah login di rekaman jangan dibuang. Pindahkan ke `LoginPage.login()` dan panggil dari spec.
-- Setelah login, cek halaman tujuan (misal teks dashboard) dengan `expect` di spec sebelum lanjut ke langkah fitur.
-- Spec di `tests/public/` tidak perlu login.
+Login aplikasi memakai reCAPTCHA, jadi login TIDAK direkam ulang di spec.
+- Sesi tiap role disiapkan di luar spec (`npm run auth -- <role>` / `npm run setup`) dan disimpan di `.auth/<role>.json`.
+- Spec yang butuh login memanggil `await new LoginPage(page).pastikanMasuk('<role>')` di `test.beforeEach`.
+- Langkah login di rekaman (isi email, password, klik Login) DIBUANG dari hasil.
+- Halaman setelah login ada di bawah `/i/` (contoh `/i/daftar-aduan/terkirim`).
 
 ## Aturan
-1. Satu halaman = satu class di `pages/`, nama file `XxxPage.js`. Halaman login memakai `LoginPage.js`.
-2. Prioritas selector: `getByRole`, lalu `getByLabel`, lalu `getByTestId`. Dilarang CSS panjang dan `nth()`.
-3. Nama method pakai aksi bisnis (`login()`, `createOrder()`, bukan `clickButton3()`).
-4. `expect` hanya di spec, bukan di page object.
-5. Dilarang hardcode URL penuh, kredensial, atau data. URL pakai path relatif (`/login`, `/orders`). Kredensial dari `.env` lewat `process.env`. Data tes dari `data/<env>/` lewat `getData()`.
-6. Hapus langkah rekaman yang tidak perlu (klik ganda, hover, dsb) dan ganti `waitForTimeout` dengan auto-wait atau `expect`.
-7. Kalau sudah ada page object yang cocok di Knowledge, pakai ulang dan jangan buat duplikat. Tambahkan method baru ke file itu kalau perlu, dan tulis ulang file itu secara utuh.
-8. Gaya kode: JavaScript dengan `import` dan `export` (bukan `require`), tanpa tipe TypeScript. Import relatif harus memakai akhiran `.js`.
-9. File data berformat JSON. Buat file di `data/dev/` dan `data/qa/` dengan nama yang sama. Kalau saya hanya memberi satu nilai, isi keduanya dengan nilai yang sama dan tulis di daftar asumsi. Kalau tes tidak butuh data, jangan buat file data kosong.
-10. Folder spec sesuai role yang dipakai: `tests/admin/` untuk admin, `tests/guest/` untuk guest. Tanyakan atau tulis di asumsi kalau role tidak jelas. Jangan memakai nama role di luar yang ada di `ROLES`.
-11. Judul `test()` pendek dan jelas (misal `'dashboard tampil'`). Langkah-langkahnya ditulis sebagai komentar `// Test Step :` di awal body test, bernomor, lalu kode yang mengerjakan tiap langkah ditulis di bawahnya. Jangan hanya komentar: setiap langkah harus benar-benar dijalankan.
-12. Teks yang dicek di `expect` diambil dari rekaman. Kalau teks di rekaman terpotong atau mengandung karakter khusus (misal `&`), pakai bagian yang stabil saja dan tulis di asumsi.
+1. Satu halaman = satu class `XxxPage.ts` di `pages/<Modul>/`, `extends BasePage`. Pakai helper BasePage, jangan duplikasi.
+2. Prioritas selector: `getByRole`, `getByLabel`, `getByText`, `getByTestId`. Dilarang CSS panjang, XPath panjang, dan `nth()`.
+3. Nama method Bahasa Indonesia, aksi bisnis: aksi `bukaXxx()`, `isiXxx()`, `klikXxx()`, `pilihXxx()`; locator `tombolXxx()`, `kolomXxx()`, `menuXxx()`.
+4. Assertion hasil hanya di spec. `expect` di page object hanya untuk menunggu (`toPass`/`poll`).
+5. Dilarang hardcode URL penuh, kredensial, atau data. URL relatif (`/i/daftar-aduan/terkirim`). Data dari `data/staging/` lewat `getData()`. Data baru yang dibuat test pakai `autoId()` (awalan `AUTO-`).
+6. Data fiktif saja. Aplikasi pengaduan memuat data pribadi; jangan pakai nama, NIK, nomor HP, atau kronologi asli dari rekaman. Ganti dengan nilai fiktif dan tulis di asumsi.
+7. Hapus langkah rekaman yang tidak perlu (klik ganda, hover). Dilarang `waitForTimeout` dan `waitForLoadState('networkidle')` tanpa batas (halaman `/i/` tidak pernah idle); pakai auto-wait, `expect`, atau `tungguData()`.
+8. Kalau sudah ada page object yang cocok di Knowledge, pakai ulang. Tambahkan method baru ke file itu dan tulis ulang file itu secara utuh.
+9. Gaya kode: TypeScript, `import`/`export`, import relatif TANPA akhiran `.ts`. Spec login mengimpor `test`/`expect` dari `config/fixtures`.
+10. Folder spec sesuai role: `tests/polres/`, `tests/polda/`, `tests/bareskrim/`. Tanyakan atau tulis di asumsi kalau role tidak jelas.
+11. Judul `test()` pendek dan jelas, beri tag `@smoke` (alur kritis, cepat) atau `@regression`. Langkah ditulis sebagai komentar `Test Step :` bernomor di awal body test, lalu kode tiap langkah di bawahnya.
+12. Assertion mengecek hasil (isi, status, pesan), bukan cuma elemen tampil. Teks yang dicek diambil dari rekaman; kalau terpotong atau ada karakter khusus, pakai bagian yang stabil dan tulis di asumsi.
 
 ## Tugas
 Dari rekaman yang saya kirim, hasilkan:
-1. Page object di `pages/` (termasuk `LoginPage.js` kalau belum ada)
-2. Data tes di `data/dev/` dan `data/qa/` (kalau dibutuhkan)
-3. Spec di `tests/<role>/`, hanya berisi urutan langkah dan assertion
+1. Page object di `pages/<Modul>/` (perbarui yang sudah ada kalau cocok)
+2. Data uji di `data/staging/` (kalau dibutuhkan)
+3. Spec di `tests/<role>/<Modul>/NN-Nama-Flow.spec.ts`, hanya berisi urutan langkah dan assertion
 
 ## Format jawaban
-Beri tiap file dalam code block terpisah, dengan path file sebagai judul di atasnya.
-Contoh: tulis `pages/OrderPage.js`, lalu code block isinya.
-Jangan ada penjelasan panjang, cukup file-file tersebut dan satu daftar singkat asumsi yang kamu ambil.
+Tiap file dalam code block terpisah dengan path file sebagai judul di atasnya. Tanpa penjelasan panjang, cukup file-file tersebut dan daftar singkat asumsi.
 
 ## Contoh target hasil
 
-pages/LoginPage.js
-```js
-export class LoginPage {
-  constructor(page) {
-    this.page = page;
+pages/DaftarAduan/DaftarAduanPage.ts
+```ts
+import type { Locator } from '@playwright/test';
+import { BasePage } from '../BasePage';
+
+export class DaftarAduanPage extends BasePage {
+  async bukaTerkirim(): Promise<void> {
+    await this.buka('/i/daftar-aduan/terkirim');
+    await this.tungguData();
   }
 
-  async goto() {
-    await this.page.goto('/login');
+  menuTerkirim(): Locator {
+    return this.menu('Terkirim');
   }
 
-  async login(email, password) {
-    await this.page.getByLabel('Email').fill(email);
-    await this.page.getByLabel('Password').fill(password);
-    await this.page.getByRole('button', { name: 'Masuk' }).click();
-  }
-}
-```
-
-pages/OrderPage.js
-```js
-export class OrderPage {
-  constructor(page) {
-    this.page = page;
-  }
-
-  async goto() {
-    await this.page.goto('/orders');
-  }
-
-  async createOrder(name) {
-    await this.page.getByRole('button', { name: 'Tambah Order' }).click();
-    await this.page.getByLabel('Nama').fill(name);
-    await this.page.getByRole('button', { name: 'Simpan' }).click();
+  tombolCreate(): Locator {
+    return this.tombol('Create', { exact: false });
   }
 }
 ```
 
-data/dev/order.json (dan data/qa/order.json dengan struktur sama)
-```json
-{ "name": "Budi" }
-```
+tests/polres/DaftarAduan/01-Daftar-Aduan-Terkirim.spec.ts
+```ts
+import { test, expect } from '../../../config/fixtures';
+import { LoginPage } from '../../../pages/LoginPage';
+import { DaftarAduanPage } from '../../../pages/DaftarAduan/DaftarAduanPage';
 
-tests/admin/create-order.spec.js
-```js
-import { test, expect } from '@playwright/test';
-import { LoginPage } from '../../pages/LoginPage.js';
-import { OrderPage } from '../../pages/OrderPage.js';
-import { getData } from '../../config/testdata.js';
+test.beforeEach(async ({ page }) => {
+  await new LoginPage(page).pastikanMasuk('polres');
+});
 
-const order = getData('order');
+test('halaman Daftar Aduan Terkirim tampil @smoke @aduan', async ({ page }) => {
+  /*
+    Test Step :
+    1. Masuk sebagai polres (beforeEach)
+    2. Buka Daftar Aduan Terkirim
+    3. Validasi URL, judul halaman, menu Terkirim, dan tombol Create
+  */
+  const daftarAduan = new DaftarAduanPage(page);
+  await daftarAduan.bukaTerkirim();
 
-test('admin bisa membuat order', async ({ page }) => {
-  // Test Step :
-  // 1. Login sebagai admin
-  // 2. Buka halaman order
-  // 3. Buat order baru
-  // 4. Pastikan order muncul di daftar
-  const loginPage = new LoginPage(page);
-  await loginPage.goto();
-  await loginPage.login(process.env.ADMIN_USERNAME, process.env.ADMIN_PASSWORD);
-  await expect(page.getByText('Dashboard Monitoring RPZ')).toBeVisible();
-
-  const orderPage = new OrderPage(page);
-  await orderPage.goto();
-  await orderPage.createOrder(order.name);
-  await expect(page.getByText(order.name)).toBeVisible();
+  await expect(page).toHaveURL(/\/i\/daftar-aduan\/terkirim/);
+  await expect(page).toHaveTitle('Daftar Aduan');
+  await expect(daftarAduan.menuTerkirim()).toBeVisible();
+  await expect(daftarAduan.tombolCreate()).toBeEnabled();
 });
 ```
